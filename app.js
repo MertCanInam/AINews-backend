@@ -8,13 +8,13 @@ const app = express();
 
 /* ========== Middlewares ========== */
 app.use(cors({
-  origin: true,           // gerekirse spesifik origin: ['http://localhost:5173']
+  origin: true, // gerekirse spesifik origin: ['http://localhost:5173']
   credentials: true,
 }));
 app.use(express.json());
 app.use(cookieParser());
 
-
+/* ========== Routes ========== */
 const authRoutes = require('./routes/authRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const globalSettingsRoutes = require('./routes/globalSettingsRoutes');
@@ -37,8 +37,6 @@ const adminReportRoutes = require("./routes/admin/adminReportRoutes");
 const adminProfileRoutes = require("./routes/admin/adminProfileRoutes");
 const userRoutes = require("./routes/userRoutes");
 
-
-
 app.use('/api/auth', authRoutes);
 app.use('/api', categoryRoutes);
 app.use('/api', globalSettingsRoutes);
@@ -60,7 +58,6 @@ app.use("/api/admin/saved-posts",adminSavedPostRoutes);
 app.use("/api/admin/reports", adminReportRoutes);
 app.use("/api/admin/profile", adminProfileRoutes);
 app.use("/api",userRoutes);
-
 
 /* ========== Healthcheck ========== */
 app.get('/', (_req, res) => {
