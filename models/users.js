@@ -1,6 +1,3 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("../config/database");
-
 const User = sequelize.define(
   "User",
   {
@@ -11,15 +8,13 @@ const User = sequelize.define(
     first_name: { type: DataTypes.STRING, allowNull: false },
     last_name: { type: DataTypes.STRING, allowNull: false },
     refresh_token: { type: DataTypes.TEXT, allowNull: true },
-    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
-    updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     pending_email: { type: DataTypes.STRING(255), allowNull: true },
     email_token: { type: DataTypes.STRING(255), allowNull: true },
   },
   {
     tableName: "users",
-    timestamps: false,
+    timestamps: true,         // Sequelize kendi created/updated set etsin
+    createdAt: "created_at",  // DB kolon adlarıyla eşleştirdik
+    updatedAt: "updated_at",
   }
 );
-
-module.exports = User;
