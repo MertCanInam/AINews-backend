@@ -1,3 +1,6 @@
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/database"); 
+
 const User = sequelize.define(
   "User",
   {
@@ -13,8 +16,10 @@ const User = sequelize.define(
   },
   {
     tableName: "users",
-    timestamps: true,         // Sequelize kendi created/updated set etsin
-    createdAt: "created_at",  // DB kolon adlarıyla eşleştirdik
+    timestamps: true, // Sequelize otomatik ekler
+    createdAt: "created_at",
     updatedAt: "updated_at",
   }
 );
+
+module.exports = User;
