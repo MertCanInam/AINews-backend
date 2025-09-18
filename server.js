@@ -1,6 +1,5 @@
-// server.js
 const app = require('./app');
-const sequelize = require('./config/database'); // doğru path bu
+const sequelize = require('./config/database');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 5000;
@@ -9,6 +8,9 @@ const PORT = process.env.PORT || 5000;
   try {
     await sequelize.authenticate();
     console.log('✅ Database connection established.');
+
+    // 🔽 Burada scheduler'ı dahil et
+    require('./jobs/scheduler');
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
