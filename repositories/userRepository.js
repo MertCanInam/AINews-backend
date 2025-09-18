@@ -2,7 +2,13 @@ const User = require("../models/users");
 const bcrypt = require("../utils/bcrypt");
 
 const createUser = async (data) => {
-  return await User.create(data);
+  return await User.create({
+    email: data.email,
+    password: data.password,
+    first_name: data.first_name,
+    last_name: data.last_name,
+    role_id: data.role_id
+  });
 };
 
 const getAllUsers = async () => {
