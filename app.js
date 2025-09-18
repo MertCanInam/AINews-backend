@@ -7,8 +7,17 @@ const cookieParser = require('cookie-parser');
 const app = express();
 
 /* ========== Middlewares ========== */
+const allowedOrigins = process.env.CORS_ORIGIN.split(",");
+
 app.use(cors({
-  origin: true, // gerekirse spesifik origin: ['http://localhost:5173']
+  origin: function (origin, callback) {
+    // Eğer origin listede varsa ya da Postman gibi tools için origin yoksa izin ver
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS policy: Bu origin engellendi -> " + origin), false);
+    }
+  },
   credentials: true,
 }));
 app.use(express.json());
