@@ -7,19 +7,24 @@ const cookieParser = require('cookie-parser');
 const app = express();
 
 /* ========== Middlewares ========== */
-const allowedOrigins = process.env.CORS_ORIGIN.split(",");
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",")
+  : [];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Eğer origin listede varsa ya da Postman gibi tools için origin yoksa izin ver
+    // Eğer origin yoksa (Postman, curl gibi) veya izinli listede varsa -> kabul et
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error("CORS policy: Bu origin engellendi -> " + origin), false);
+      // Reddet ama hata fırlatma, sadece izin verme
+      console.warn("❌ CORS engellendi:", origin);
+      callback(null, false);
     }
   },
   credentials: true,
 }));
+
 app.use(express.json());
 app.use(cookieParser());
 
