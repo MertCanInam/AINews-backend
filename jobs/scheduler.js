@@ -1,21 +1,21 @@
 const cron = require("node-cron");
 const { exec } = require("child_process");
 
-// Türkiye saati 08:30 → UTC 05:30
-cron.schedule("30 5 * * *", () => {
-  console.log("⏰ Runner job başlıyor (08:30 TR / 05:30 UTC)...");
-  exec("node jobs/runner.js", (err, stdout, stderr) => {
+// Türkiye saati 09:00 → UTC 06:00
+cron.schedule("0 6 * * *", () => {
+  console.log("⏰ Extractor job başlıyor (09:00 TR / 06:00 UTC)...");
+  exec("node jobs/extractor.js", (err, stdout, stderr) => {
     if (err) {
-      console.error("❌ Runner job hata:", err);
+      console.error("❌ Extractor job hata:", err);
       return;
     }
-    console.log("Runner job output:", stdout);
+    console.log("Extractor job output:", stdout);
   });
 });
 
-// Türkiye saati 08:35 → UTC 05:35
-cron.schedule("35 5 * * *", () => {
-  console.log("📧 Mailer job başlıyor (08:35 TR / 05:35 UTC)...");
+// Türkiye saati 09:10 → UTC 06:10
+cron.schedule("10 6 * * *", () => {
+  console.log("📧 Mailer job başlıyor (09:10 TR / 06:10 UTC)...");
   exec("node jobs/mailer.js", (err, stdout, stderr) => {
     if (err) {
       console.error("❌ Mailer job hata:", err);
@@ -25,4 +25,4 @@ cron.schedule("35 5 * * *", () => {
   });
 });
 
-console.log("🔄 Scheduler aktif: Runner 08:30’da, Mailer 08:35’te (Türkiye saati).");
+console.log("🔄 Scheduler aktif: Extractor 09:00’da, Mailer 09:10’da (Türkiye saati).");
