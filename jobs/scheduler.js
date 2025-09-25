@@ -5,9 +5,9 @@ const { exec } = require("child_process");
 const runnerPath = path.join(__dirname, "runner.js");   // scheduler.js ile aynı klasörde
 const mailerPath = path.join(__dirname, "mailer.js");
 
-// Türkiye saati 10:45 → UTC 07:45
-cron.schedule("45 7 * * *", () => {
-  console.log("⏰ Runner job başlıyor (10:45 TR / 07:45 UTC)...");
+// Türkiye saati 11:00 → UTC 08:00
+cron.schedule("0 8 * * *", () => {
+  console.log("⏰ Runner job başlıyor (11:00 TR / 08:00 UTC)...");
   exec(`node ${runnerPath}`, (err, stdout, stderr) => {
     if (err) {
       console.error("❌ Runner job hata:", err);
@@ -17,9 +17,9 @@ cron.schedule("45 7 * * *", () => {
   });
 });
 
-// Türkiye saati 10:50 → UTC 07:50
-cron.schedule("50 7 * * *", () => {
-  console.log("📧 Mailer job başlıyor (10:50 TR / 07:50 UTC)...");
+// Türkiye saati 11:05 → UTC 08:05
+cron.schedule("5 8 * * *", () => {
+  console.log("📧 Mailer job başlıyor (11:05 TR / 08:05 UTC)...");
   exec(`node ${mailerPath}`, (err, stdout, stderr) => {
     if (err) {
       console.error("❌ Mailer job hata:", err);
@@ -29,4 +29,4 @@ cron.schedule("50 7 * * *", () => {
   });
 });
 
-console.log("🔄 Scheduler aktif: Runner 10:45’te, Mailer 10:50’de (Türkiye saati).");
+console.log("🔄 Scheduler aktif: Runner 11:00’de, Mailer 11:05’te (Türkiye saati).");
