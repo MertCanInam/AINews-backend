@@ -1,30 +1,50 @@
+const supabase = require("../supabaseClient"); // Supabase admin istemcisini import et
 const bcrypt = require("bcrypt");
 const userRepository = require("../repositories/userRepository");
 const jwtUtils = require("../utils/jwtUtils");
 const userLoginLogsRepository = require("../repositories/userLoginLogsRepository");
 
-// Kullanıcı Kayıt (Register)
+// Kullanıcı Kayıt (Register) - GÜNCELLENMİŞ HALİ
 const register = async (email, password, first_name, last_name) => {
+  // 1. Kullanıcının bizim 'users' tablomuzda olup olmadığını yine de kontrol edebiliriz (isteğe bağlı)
   const existingUser = await userRepository.getUserByEmail(email);
   if (existingUser) {
     throw new Error("Email is already in use");
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
- const role_id = 2;
-
-  
-  await userRepository.createUser({
-    email,
-    password: hashedPassword,
-    first_name: first_name,
-    last_name: last_name,
-   role_id
+  // 2. Şifre şifreleme ve kullanıcı oluşturma işini DOĞRUDAN SUPABASE'E YAPTIRIYORUZ
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true, // Kullanıcı direkt onaylanmış olsun
   });
+
+  if (authError) {
+    // Eğer Supabase tarafında bir hata oluşursa (örn: email zaten kayıtlı), hatayı fırlat
+    throw new Error(authError.message);
+  }
+
+  // 3. SİHİRLİ TETİKLEYİCİ BU AŞAMADA ÇALIŞTI!
+  // Supabase, kullanıcıyı 'auth.users'a ekledi ve bizim trigger'ımız da 'public.users' tablosuna
+  // 'auth_user_id' ve 'email'i dolu bir satır ekledi.
+
+  // 4. (İsteğe Bağlı ama Önerilir) Tetikleyicinin oluşturduğu satırı ad/soyad ile güncelleyelim.
+  const { error: updateError } = await supabase
+    .from('users') // Senin 'users' tablon
+    .update({ 
+        first_name: first_name, 
+        last_name: last_name,
+        role_id: 2 // Rol ID'sini burada atayabilirsin
+    })
+    .eq('auth_user_id', authData.user.id); // UUID ile eşleştirerek doğru kullanıcıyı buluyoruz
+
+  if (updateError) {
+      // Eğer güncelleme sırasında hata olursa, bunu log'lamak iyi bir pratik.
+      console.error("Kullanıcı profili güncellenirken hata oluştu:", updateError.message);
+  }
 
   return { success: true, message: "User registered successfully" };
 };
-
 // Kullanıcı Giriş (Login)
 const login = async (email, password) => {
   const user = await userRepository.getUserByEmail(email);
