@@ -30,5 +30,5 @@ cron.schedule("45 2 * * *", () => {
 });
 
 console.log(
-  "🔄 Scheduler aktif: Runner 01:55’de, Mailer 02:00’de (UTC) çalışacak."
+  "🔄 Scheduler aktif: Runner 02:40’de, Mailer 02:45’de (UTC) çalışacak."
 );
