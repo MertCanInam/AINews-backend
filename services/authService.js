@@ -45,32 +45,38 @@ const register = async (email, password, first_name, last_name) => {
 
   return { success: true, message: "User registered successfully" };
 };
-// Kullanıcı Giriş (Login)
+// Kullanıcı Giriş (Login) - YENİ VE DOĞRU HALİ
 const login = async (email, password) => {
-  const user = await userRepository.getUserByEmail(email);
-  if (!user) {
-    return { success: false, message: "User not found" };
+  // 1. Kimlik doğrulama işini DOĞRUDAN SUPABASE'E YAPTIRIYORUZ
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email: email,
+    password: password,
+  });
+
+  if (authError) {
+    // Supabase "Invalid login credentials" gibi bir hata dönerse, bunu direkt kullanıcıya iletiyoruz.
+    return { success: false, message: authError.message };
   }
 
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-  if (!isPasswordValid) {
-    return { success: false, message: "Invalid password" };
+  // 2. Giriş başarılı! Şimdi Supabase'den gelen auth user ID'si ile KENDİ veritabanımızdan
+  // kullanıcının profil bilgilerini (rol, isim, soyisim vb.) çekmeliyiz.
+  const user = await userRepository.getUserByAuthId(authData.user.id); // Bu fonksiyonu repoya ekleyeceğiz!
+  if (!user) {
+    // Bu durum normalde olmamalı (trigger çalıştığı için), ama bir güvenlik kontrolü olarak ekleyelim.
+    return { success: false, message: "User profile not found in public users table." };
   }
   
- 
-
+  // 3. Her şey yolunda. Artık KENDİ JWT tokenlarımızı oluşturabiliriz.
   const accessToken = jwtUtils.generateAccessToken(user);
   const refreshToken = jwtUtils.generateRefreshToken(user);
 
+  // 4. Kendi refresh token'ımızı veritabanımıza kaydediyoruz.
   await userRepository.updateRefreshToken(user.user_id, refreshToken);
-  const updatedUser = await userRepository.getUserById(user.user_id);
+  await userLoginLogsRepository.createLog(user.user_id, "login");
 
- await userLoginLogsRepository.createLog(user.user_id, "login");
-
- 
-   return { success: true, user: updatedUser, accessToken, refreshToken };
+  // Not: updatedUser'a gerek yok, zaten 'user' objesi en güncel halini içeriyor.
+  return { success: true, user, accessToken, refreshToken };
 };
-
 // Kullanıcı Çıkış (Logout)
 const logout = async (user_id) => {
   await userRepository.clearRefreshToken(user_id);

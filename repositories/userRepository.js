@@ -77,6 +77,10 @@ const consumeEmailToken = async (token) => {
   return user;
 };
 
+// Supabase Auth ID'sine göre kullanıcıyı getiren fonksiyon
+const getUserByAuthId = async (authId) => {
+  return await User.findOne({ where: { auth_user_id: authId } });
+};
 
 module.exports = {
   createUser,
@@ -84,12 +88,13 @@ module.exports = {
   getUserById,
   getUserByEmail,
   updateUser,
-  updatePassword, // ✅ ekledik
+  updatePassword, 
   deleteUser,
   updateRefreshToken,
   clearRefreshToken,
   clearAllRefreshTokens,
   countUsers,
   setPendingEmail,
-  consumeEmailToken
+  consumeEmailToken,
+  getUserByAuthId
 };
