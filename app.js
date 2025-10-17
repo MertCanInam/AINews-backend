@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const cookieParser = require('cookie-parser'); 
+const { sequelize } = require('./models'); // Model dosyanızın yolu farklıysa burayı düzenleyin
 
 const app = express();
 
