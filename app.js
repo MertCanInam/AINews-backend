@@ -74,16 +74,28 @@ app.use("/api/admin/profile", adminProfileRoutes);
 app.use("/api",userRoutes);
 
 /* ========== Healthcheck ========== */
-app.get('/', (_req, res) => {
-  res.send('API çalışıyor ✅');
-});
+app.get('/api/health', async (_req, res) => {
+  try {
+    // Veritabanına basit bir sorgu atarak bağlantıyı test et ve onu "uyandır"
+    await sequelize.authenticate(); 
+    
+    // Her şey yolundaysa 200 dön
+    res.status(200).json({
+      ok: true,
+      message: 'API ve Veritabanı bağlantısı aktif.',
+      env: process.env.NODE_ENV || 'development',
+      time: new Date().toISOString(),
+    });
 
-app.get('/api/health', (_req, res) => {
-  res.status(200).json({
-    ok: true,
-    env: process.env.NODE_ENV || 'development',
-    time: new Date().toISOString(),
-  });
+  } catch (error) {
+    // Eğer veritabanı uyanamazsa veya bir sorun varsa, hata dön
+    console.error('Health check veritabanı hatası:', error.message);
+    res.status(503).json({ // 503 Service Unavailable daha doğru bir status kodu
+      ok: false,
+      message: 'API aktif fakat veritabanı bağlantısı kurulamadı.',
+      error: error.message,
+    });
+  }
 });
 
 /* ========== 404 Handler ========== */
