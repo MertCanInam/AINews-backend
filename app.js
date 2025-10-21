@@ -51,6 +51,7 @@ const adminSavedPostRoutes = require('./routes/admin/adminSavedPostRoutes');
 const adminReportRoutes = require("./routes/admin/adminReportRoutes");
 const adminProfileRoutes = require("./routes/admin/adminProfileRoutes");
 const userRoutes = require("./routes/userRoutes");
+const jobsTriggerRoutes = require("./routes/jobsTriggerRoutes");
 
 app.use('/api/auth', authRoutes);
 app.use('/api', categoryRoutes);
@@ -72,7 +73,10 @@ app.use("/api/admin/tickets",adminTicketRoutes);
 app.use("/api/admin/saved-posts",adminSavedPostRoutes);
 app.use("/api/admin/reports", adminReportRoutes);
 app.use("/api/admin/profile", adminProfileRoutes);
+app.use("/api/jobs", jobsTriggerRoutes);
 app.use("/api",userRoutes);
+
+
 
 /* ========== Healthcheck ========== */
 app.get('/api/health', async (_req, res) => {
