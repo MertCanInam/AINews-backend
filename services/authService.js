@@ -1,4 +1,4 @@
-const supabase = require("../supabaseClient"); // Supabase admin istemcisini import et
+const supabase = require("../supabaseClient");
 const bcrypt = require("bcrypt");
 const userRepository = require("../repositories/userRepository");
 const jwtUtils = require("../utils/jwtUtils");
@@ -6,43 +6,45 @@ const userLoginLogsRepository = require("../repositories/userLoginLogsRepository
 
 // Kullanıcı Kayıt (Register)
 const register = async (email, password, first_name, last_name) => {
-  // 1. Email zaten var mı kontrol et
-  const existingUser = await userRepository.getUserByEmail(email);
-  if (existingUser) {
-    throw new Error("Email is already in use");
-  }
+  try {
+    console.log("REGISTER START", { email, first_name, last_name });
 
-  // 2. Supabase Auth'ta kullanıcı oluştur
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email: email,
-    password: password,
-    email_confirm: true,
-  });
-
-  if (authError) {
-    console.error("Auth oluşturma hatası:", authError.message);
-    throw new Error("Auth user creation failed: " + authError.message);
-  }
-
-  // 3. public.users tablosuna manuel olarak kayıt ekle
-  const { error: insertError } = await supabase
-    .from("users")
-    .insert({
-      auth_user_id: authData.user.id,
-      email: email,
-      first_name: first_name,
-      last_name: last_name,
-      role_id: 2, // user rolü
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    // Auth tarafı
+    const { data: authData, error: authError } = await supabaseService.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
     });
 
-  if (insertError) {
-    console.error("Veritabanına kullanıcı eklenirken hata:", insertError.message);
-    throw new Error("Database error creating new user");
-  }
+    if (authError) {
+      console.error("Auth oluşturma hatası:", authError.message);
+      throw new Error("Auth user creation failed: " + authError.message);
+    }
 
-  return { success: true, message: "User registered successfully" };
+    // public.users insert işlemi
+    const { data: inserted, error: insertError } = await supabaseService
+      .from("users")
+      .insert({
+        auth_user_id: authData.user.id,
+        email,
+        first_name,
+        last_name,
+        role_id: 2,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select();
+
+    if (insertError) {
+      console.error("Veritabanına kullanıcı eklenirken hata:", insertError.message);
+      throw new Error("Database error creating new user");
+    }
+
+    return { success: true, message: "User registered successfully", user: inserted?.[0] };
+  } catch (err) {
+    console.error("REGISTER ERROR:", err);
+    throw err;
+  }
 };
 
 // Kullanıcı Giriş (Login) - YENİ VE DOĞRU HALİ
