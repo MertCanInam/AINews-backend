@@ -4,47 +4,47 @@ const userRepository = require("../repositories/userRepository");
 const jwtUtils = require("../utils/jwtUtils");
 const userLoginLogsRepository = require("../repositories/userLoginLogsRepository");
 
-// Kullanıcı Kayıt (Register) - GÜNCELLENMİŞ HALİ
+// Kullanıcı Kayıt (Register)
 const register = async (email, password, first_name, last_name) => {
-  // 1. Kullanıcının bizim 'users' tablomuzda olup olmadığını yine de kontrol edebiliriz (isteğe bağlı)
+  // 1. Email zaten var mı kontrol et
   const existingUser = await userRepository.getUserByEmail(email);
   if (existingUser) {
     throw new Error("Email is already in use");
   }
 
-  // 2. Şifre şifreleme ve kullanıcı oluşturma işini DOĞRUDAN SUPABASE'E YAPTIRIYORUZ
+  // 2. Supabase Auth'ta kullanıcı oluştur
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: email,
-      password: password,
-      email_confirm: true, // Kullanıcı direkt onaylanmış olsun
+    email: email,
+    password: password,
+    email_confirm: true,
   });
 
   if (authError) {
-    // Eğer Supabase tarafında bir hata oluşursa (örn: email zaten kayıtlı), hatayı fırlat
-    throw new Error(authError.message);
+    console.error("Auth oluşturma hatası:", authError.message);
+    throw new Error("Auth user creation failed: " + authError.message);
   }
 
-  // 3. SİHİRLİ TETİKLEYİCİ BU AŞAMADA ÇALIŞTI!
-  // Supabase, kullanıcıyı 'auth.users'a ekledi ve bizim trigger'ımız da 'public.users' tablosuna
-  // 'auth_user_id' ve 'email'i dolu bir satır ekledi.
+  // 3. public.users tablosuna manuel olarak kayıt ekle
+  const { error: insertError } = await supabase
+    .from("users")
+    .insert({
+      auth_user_id: authData.user.id,
+      email: email,
+      first_name: first_name,
+      last_name: last_name,
+      role_id: 2, // user rolü
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
 
-  // 4. (İsteğe Bağlı ama Önerilir) Tetikleyicinin oluşturduğu satırı ad/soyad ile güncelleyelim.
-  const { error: updateError } = await supabase
-    .from('users') // Senin 'users' tablon
-    .update({ 
-        first_name: first_name, 
-        last_name: last_name,
-        role_id: 2 // Rol ID'sini burada atayabilirsin
-    })
-    .eq('auth_user_id', authData.user.id); // UUID ile eşleştirerek doğru kullanıcıyı buluyoruz
-
-  if (updateError) {
-      // Eğer güncelleme sırasında hata olursa, bunu log'lamak iyi bir pratik.
-      console.error("Kullanıcı profili güncellenirken hata oluştu:", updateError.message);
+  if (insertError) {
+    console.error("Veritabanına kullanıcı eklenirken hata:", insertError.message);
+    throw new Error("Database error creating new user");
   }
 
   return { success: true, message: "User registered successfully" };
 };
+
 // Kullanıcı Giriş (Login) - YENİ VE DOĞRU HALİ
 const login = async (email, password) => {
   // 1. Kimlik doğrulama işini DOĞRUDAN SUPABASE'E YAPTIRIYORUZ
