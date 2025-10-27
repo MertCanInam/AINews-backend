@@ -18,7 +18,7 @@ const register = async (email, password, first_name, last_name) => {
 
   const authUserId = authData.user.id;
 
-  // 0.5 saniye bekle (trigger’ın işlemini tamamlaması için)
+  // Trigger'ın çalışmasını bekleyelim
   await new Promise(resolve => setTimeout(resolve, 500));
 
   // Sadece ad-soyad güncelle
@@ -31,6 +31,7 @@ const register = async (email, password, first_name, last_name) => {
 
   return { success: true, message: "User registered successfully" };
 };
+
 
 // Kullanıcı Giriş (Login) - YENİ VE DOĞRU HALİ
 const login = async (email, password) => {
