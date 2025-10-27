@@ -17,7 +17,7 @@ app.listen(PORT, '0.0.0.0', () => {
       console.log('✅ Database connection established.');
 
       // 3. ADIM: Bağlantı başarılıysa scheduler'ı başlat.
-      require('./jobs/scheduler');
+      // require('./jobs/scheduler');
     } catch (error) {
       console.error('❌ Initial database connection error:', error);
       // Not: Burada process.exit(1) yapmıyoruz. Sunucu çalışmaya devam etsin.
