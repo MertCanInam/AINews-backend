@@ -5,32 +5,44 @@ const jwtUtils = require("../utils/jwtUtils");
 const userLoginLogsRepository = require("../repositories/userLoginLogsRepository");
 
 // Kullanıcı Kayıt (Register) - GÜNCELLENMİŞ HALİ
+// Kullanıcı Kayıt (Trigger’sız sürüm)
 const register = async (email, password, first_name, last_name) => {
-  const existingUser = await userRepository.getUserByEmail(email);
-  if (existingUser) throw new Error("Email is already in use");
+  // 1. Email kontrolü
+  const existingUser = await userRepository.getUserByEmail(email)
+  if (existingUser) {
+    throw new Error('Email is already in use')
+  }
 
+  // 2. Supabase'te kullanıcı oluştur
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-  });
-  if (authError) throw new Error(authError.message);
+  })
 
-  const authUserId = authData.user.id;
+  if (authError) {
+    console.error('Auth oluşturma hatası:', authError)
+    throw new Error('Error creating auth user: ' + authError.message)
+  }
 
-  // Trigger'ın çalışmasını bekleyelim
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // 3. Kullanıcıyı kendi "users" tablomuzda oluştur
+  const { error: insertError } = await supabase.from('users').insert({
+    auth_user_id: authData.user.id,
+    email,
+    first_name,
+    last_name,
+    role_id: 2, // user rolü
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  })
 
-  // Sadece ad-soyad güncelle
-  const { error: updateError } = await supabase
-    .from('users')
-    .update({ first_name, last_name })
-    .eq('auth_user_id', authUserId);
+  if (insertError) {
+    console.error('Veritabanına eklerken hata:', insertError)
+    throw new Error('Database error creating new user')
+  }
 
-  if (updateError) console.error("Profil güncellenirken hata:", updateError.message);
-
-  return { success: true, message: "User registered successfully" };
-};
+  return { success: true, message: 'User registered successfully' }
+}
 
 
 // Kullanıcı Giriş (Login) - YENİ VE DOĞRU HALİ
