@@ -16,7 +16,6 @@ const SOURCE_DEFAULT_LANG = {
   siberbulten: "tr",
   "bbc news": "tr",
 };
-
 async function run() {
   const sources = await sourcesRepository.getActiveSources();
   let inserted = 0;
@@ -27,8 +26,13 @@ async function run() {
     try {
       console.log(`🔍 Kaynak işleniyor: ${src.name} (${src.url})`);
 
-      // 1. HTML indir
-      const res = await axios.get(src.url, { timeout: 20000 });
+      // 1. HTML indir (✅ DÜZELTME: User-Agent eklendi)
+      const res = await axios.get(src.url, { 
+        timeout: 20000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
       const html = res.data;
 
       // 2. Cheerio ile linkleri çıkar + filtrele
@@ -139,9 +143,11 @@ async function run() {
       let parsed;
       try {
         const aiResult = await askAI(extractPrompt);
-        console.log("🤖 AI raw output:", aiResult);
+        // console.log("🤖 AI raw output:", aiResult); // Log kirliliği olmasın diye kapattım
 
-        const clean = aiResult.replace(/```json|```/g, "").trim();
+        // ✅ DÜZELTME: Sadece [ ... ] arasındaki JSON verisini çek
+        const jsonMatch = aiResult.match(/\[[\s\S]*\]/);
+        const clean = jsonMatch ? jsonMatch[0] : aiResult.replace(/```json|```/g, "").trim();
 
         try {
           parsed = JSON.parse(clean);
@@ -150,6 +156,7 @@ async function run() {
         }
       } catch (err) {
         console.error("⚠️ Haber parse hatası:", err.message);
+        // console.log("Hatalı Data:", clean); // Debug için açabilirsin
         continue;
       }
 

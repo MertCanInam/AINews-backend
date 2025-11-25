@@ -65,7 +65,15 @@ async function runSummarizerJob(limit = 20) {
       }
 
       const aiSummaryRaw = await askAI(prompt);
-      const aiSummary = aiSummaryRaw ? aiSummaryRaw.replace(/```/g, "").trim() : null;
+      
+      // ✅ DÜZELTME: AI çıktısını daha güçlü temizle
+      let aiSummary = aiSummaryRaw ? aiSummaryRaw.replace(/```/g, "").trim() : null;
+      
+      if (aiSummary) {
+          // "Özet:", "Summary:" gibi önekleri ve tırnak işaretlerini temizle
+          aiSummary = aiSummary.replace(/^(Özet:|Summary:|Abstract:|Here is the summary:)/i, "").trim();
+          aiSummary = aiSummary.replace(/^["']|["']$/g, "");
+      }
 
       if (aiSummary && aiSummary.length > 0) {
         post.summary = aiSummary;

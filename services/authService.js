@@ -1,50 +1,46 @@
-const supabase = require("../supabaseClient");
+const supabase = require("../supabaseClient"); // Supabase admin istemcisini import et
 const bcrypt = require("bcrypt");
 const userRepository = require("../repositories/userRepository");
 const jwtUtils = require("../utils/jwtUtils");
 const userLoginLogsRepository = require("../repositories/userLoginLogsRepository");
 
-// Kullanıcı Kayıt (Register)
+// Kullanıcı Kayıt (Register) - GÜNCELLENMİŞ HALİ
 const register = async (email, password, first_name, last_name) => {
-  try {
-    console.log("REGISTER START", { email, first_name, last_name });
-
-    // Auth tarafı
-    const { data: authData, error: authError } = await supabaseService.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-
-    if (authError) {
-      console.error("Auth oluşturma hatası:", authError.message);
-      throw new Error("Auth user creation failed: " + authError.message);
-    }
-
-    // public.users insert işlemi
-    const { data: inserted, error: insertError } = await supabaseService
-      .from("users")
-      .insert({
-        auth_user_id: authData.user.id,
-        email,
-        first_name,
-        last_name,
-        role_id: 2,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select();
-
-    if (insertError) {
-      console.error("Veritabanına kullanıcı eklenirken hata:", insertError.message);
-      throw new Error("Database error creating new user");
-    }
-
-    return { success: true, message: "User registered successfully", user: inserted?.[0] };
-  } catch (err) {
-    console.error("REGISTER ERROR:", err);
-    throw err;
+  // 1️⃣ Kullanıcının mevcut olup olmadığını kontrol et
+  const existingUser = await userRepository.getUserByEmail(email);
+  if (existingUser) {
+    throw new Error("Email is already in use");
   }
+
+  // 2️⃣ Kullanıcı oluştur (metadata dahil)
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: {              // ✅ doğru parametre
+      first_name,
+      last_name,
+    },
+  });
+
+  if (authError) throw new Error(authError.message);
+
+  // 3️⃣ (opsiyonel) Tetikleyicinin oluşturduğu satırı güncelle
+  const { error: updateError } = await supabase
+    .from("users")
+    .update({
+      first_name,
+      last_name,
+      role_id: 2,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("auth_user_id", authData.user.id);
+
+  if (updateError) {
+    console.error("Kullanıcı profili güncellenirken hata:", updateError.message);
+  }
+
+  return { success: true, message: "User registered successfully" };
 };
 
 // Kullanıcı Giriş (Login) - YENİ VE DOĞRU HALİ
