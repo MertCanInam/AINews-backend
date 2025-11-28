@@ -106,6 +106,11 @@ async function run() {
 
       console.log(`🔗 Filtrelenmiş link sayısı: ${allLinks.length}`);
 
+      if (allLinks.length === 0) {
+          console.log("⚠️ Link bulunamadı, bu kaynak atlanıyor.");
+          continue; 
+      }
+
       // 3. Kaynağa özel kurallar
       let linkRule = "";
       if (src.name.toLowerCase().includes("hackernews")) {

@@ -1,41 +1,47 @@
-// utils/aiClient.js
 const axios = require("axios");
 
 const client = axios.create({
   baseURL: "https://openrouter.ai/api/v1",
-  timeout: 60000, // ✅ 60 saniye içinde cevap gelmezse işlemi iptal et
+  timeout: 120000, // 2 dakika bekleme süresi (Google bazen yavaş başlayabilir)
   headers: {
     Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
     "Content-Type": "application/json",
-    // OpenRouter sıralamasında geri düşmemek için bu başlıkları eklemek iyi bir pratik:
-    "HTTP-Referer": "https://ai-news-bot.com", 
+    "HTTP-Referer": "https://ai-news-bot.com",
     "X-Title": "News Bot",
   },
 });
 
 async function askAI(prompt) {
   try {
-    console.log("🤖 AI isteği gönderiliyor..."); 
+    console.log("🚀 AI isteği atılıyor (Model: Gemini 2.0 Flash)...");
 
     const res = await client.post("/chat/completions", {
-      // ✅ MODEL DEĞİŞİKLİĞİ: Llama 3.1 8B (Çok daha hızlı ve stabil ücretsiz model)
-      model: "meta-llama/llama-3.1-8b-instruct:free", 
+      // ✅ GÜNCELLEME: Google'ın en yeni ve ücretsiz modeli. Çok daha stabil.
+      model: "google/gemini-2.0-flash-exp:free", 
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.3, // Daha tutarlı cevaplar için düşük sıcaklık
+      temperature: 0.3,
     });
 
-    console.log("🤖 AI cevabı başarıyla alındı.");
-    return res.data.choices[0].message.content.trim();
-  } catch (err) {
-    // Hatayı detaylı görelim
-    if (err.code === 'ECONNABORTED') {
-      console.error("❌ AI Hatası: İstek zaman aşımına uğradı (60sn Timeout).");
+    if (res.data && res.data.choices && res.data.choices.length > 0) {
+      console.log("✅ AI Cevabı alındı! (Uzunluk: " + res.data.choices[0].message.content.length + ")");
+      return res.data.choices[0].message.content.trim();
     } else {
-      console.error("❌ AI Hatası:", err.response?.data || err.message);
+      console.log("⚠️ AI boş cevap döndü.");
+      return null;
     }
-    
-    // Hata fırlatarak extractor'daki catch bloğunun yakalamasını sağla
-    throw err;
+
+  } catch (err) {
+    // console.error yerine console.log kullanıyoruz ki kesin görelim
+    console.log("❌ AI HATASI OLUŞTU:");
+    if (err.response) {
+      console.log(`Status: ${err.response.status}`);
+      console.log(`Data: ${JSON.stringify(err.response.data)}`);
+    } else if (err.code === 'ECONNABORTED') {
+      console.log("Zaman aşımı (Timeout) hatası.");
+    } else {
+      console.log(err.message);
+    }
+    return null; // Hata fırlatmak yerine null dönelim ki diğer haberleri engellemesin
   }
 }
 
