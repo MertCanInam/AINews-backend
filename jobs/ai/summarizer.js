@@ -2,6 +2,9 @@ require("dotenv").config();
 const { Post } = require("../../models");
 const { askAI } = require("../../utils/aiClient");
 
+// ✅ Yardımcı Fonksiyon: Bekleme (Sleep)
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // Desteklenen diller ve prompt şablonları
 const supportedLangs = {
   tr: (text) => `
@@ -66,8 +69,15 @@ async function runSummarizerJob(limit = 20) {
 
       const aiSummaryRaw = await askAI(prompt);
       
-      // ✅ DÜZELTME: AI çıktısını daha güçlü temizle
-      let aiSummary = aiSummaryRaw ? aiSummaryRaw.replace(/```/g, "").trim() : null;
+      // Eğer AI cevap vermezse (Rate Limit vb.), işlemi durdurma ama bu kaydı pas geç
+      if (!aiSummaryRaw) {
+          console.warn(`⚠️ AI cevap vermedi, 15 saniye soğuma süresi bekleniyor...`);
+          await sleep(15000);
+          continue; // Kaydetme, döngüden çıkma, sadece bu turu atla
+      }
+
+      // AI çıktısını temizle
+      let aiSummary = aiSummaryRaw.replace(/```/g, "").trim();
       
       if (aiSummary) {
           // "Özet:", "Summary:" gibi önekleri ve tırnak işaretlerini temizle
@@ -80,6 +90,11 @@ async function runSummarizerJob(limit = 20) {
         post.status = "summarized";
         await post.save();
         console.log(`✅ Summary saved for: ${post.title}`);
+        
+        // ✅ KRİTİK EKLEME: Her başarılı özetten sonra 10 saniye bekle
+        console.log("⏳ Rate Limit koruması: 10 saniye bekleniyor...");
+        await sleep(10000); 
+
       } else {
         post.status = "error";
         await post.save();
