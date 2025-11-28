@@ -146,9 +146,9 @@ async function run() {
         if (!aiResult) {
           console.warn(`⚠️ AI boş cevap döndü (Muhtemelen Rate Limit), bu kaynak atlanıyor: ${src.name}`);
           
-          // Hata durumunda da biraz bekleyelim ki API rahatlasın
-          console.log("⏳ Hata sonrası soğuma süresi (15 sn)...");
-          await sleep(15000); 
+          // ✅ GÜNCELLEME: Bekleme süresini 45 saniyeye çıkardık (Daha güvenli)
+          console.log("⏳ Hata sonrası soğuma süresi (45 sn)...");
+          await sleep(45000); 
           continue;
         }
 
@@ -215,9 +215,9 @@ async function run() {
         }
       }
 
-      // ✅ BAŞARI SONRASI BEKLEME: Her başarılı kaynaktan sonra 15 saniye bekle
-      console.log(`⏳ ${src.name} tamamlandı. Rate Limit yememek için 15 saniye bekleniyor...`);
-      await sleep(15000);
+      // ✅ GÜNCELLEME: Başarılı işlemden sonra da 45 saniye bekle
+      console.log(`⏳ ${src.name} tamamlandı. Rate Limit yememek için 45 saniye bekleniyor...`);
+      await sleep(45000);
 
     } catch (err) {
       console.error(`❌ Kaynak hata: ${src.url}`, err.message);
