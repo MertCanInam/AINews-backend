@@ -6,7 +6,8 @@ const { askAI } = require("../../utils/aiClient");
 const postsRepository = require("../../repositories/postsRepository");
 const sourcesRepository = require("../../repositories/sourcesRepository");
 const { detectLanguage } = require("../../utils/langDetect");
-const { parse } = require("jsonrepair");
+// ✅ DÜZELTME: jsonrepair import şekli düzeltildi
+const { jsonrepair } = require("jsonrepair");
 
 // ✅ Yardımcı Fonksiyon: Bekleme (Sleep)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -145,10 +146,8 @@ async function run() {
         // 🛑 KRİTİK KONTROL: AI Cevap vermedi mi?
         if (!aiResult) {
           console.warn(`⚠️ AI boş cevap döndü (Muhtemelen Rate Limit), bu kaynak atlanıyor: ${src.name}`);
-          
-          // ✅ GÜNCELLEME: Bekleme süresini 45 saniyeye çıkardık (Daha güvenli)
-          console.log("⏳ Hata sonrası soğuma süresi (45 sn)...");
-          await sleep(45000); 
+          console.log("⏳ Hata sonrası soğuma süresi (30 sn)...");
+          await sleep(30000); 
           continue;
         }
 
@@ -158,10 +157,16 @@ async function run() {
         try {
           parsed = JSON.parse(clean);
         } catch (err) {
-          parsed = parse(clean);
+          // ✅ DÜZELTME: jsonrepair fonksiyonu doğru kullanıldı
+          try {
+             parsed = JSON.parse(jsonrepair(clean));
+          } catch (repairErr) {
+             console.error("⚠️ JSON Repair de başarısız oldu:", repairErr.message);
+             continue; // Bu kaynağı atla
+          }
         }
       } catch (err) {
-        console.error("⚠️ Haber parse hatası:", err.message);
+        console.error("⚠️ Haber parse hatası (Genel):", err.message);
         continue;
       }
 
@@ -215,9 +220,9 @@ async function run() {
         }
       }
 
-      // ✅ GÜNCELLEME: Başarılı işlemden sonra da 45 saniye bekle
-      console.log(`⏳ ${src.name} tamamlandı. Rate Limit yememek için 45 saniye bekleniyor...`);
-      await sleep(45000);
+      // ✅ Bekleme süresini 20 saniye yaptım, Mistral için yeterli
+      console.log(`⏳ ${src.name} tamamlandı. 20 saniye bekleniyor...`);
+      await sleep(20000);
 
     } catch (err) {
       console.error(`❌ Kaynak hata: ${src.url}`, err.message);
