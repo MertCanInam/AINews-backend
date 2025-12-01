@@ -6,7 +6,6 @@ const { askAI } = require("../../utils/aiClient");
 const postsRepository = require("../../repositories/postsRepository");
 const sourcesRepository = require("../../repositories/sourcesRepository");
 const { detectLanguage } = require("../../utils/langDetect");
-// ✅ DÜZELTME: jsonrepair import şekli düzeltildi
 const { jsonrepair } = require("jsonrepair");
 
 // ✅ Yardımcı Fonksiyon: Bekleme (Sleep)
@@ -26,129 +25,102 @@ async function run() {
   console.log("🔎 DB’den gelen sources:", sources);
 
   for (const src of sources) {
-    try {
-      console.log(`--------------------------------------------------`);
-      console.log(`🔍 Kaynak işleniyor: ${src.name} (${src.url})`);
+    console.log(`--------------------------------------------------`);
+    console.log(`🔍 Kaynak işleniyor: ${src.name} (${src.url})`);
 
-      // 1. HTML indir
+    let html = "";
+    let allLinks = [];
+
+    // 1. HTML İndirme ve Link Toplama
+    try {
       const res = await axios.get(src.url, {
         timeout: 20000,
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         },
       });
-      const html = res.data;
-
-      // 2. Cheerio ile linkleri çıkar + filtrele
+      html = res.data;
       const $ = cheerio.load(html);
-      const allLinks = [];
 
+      // Link toplama mantığı (Mevcut kodun aynısı)
       if (src.name.toLowerCase().includes("bbc")) {
-        const bbcLinks = [];
         $("a[data-testid='internal-link']").each((i, el) => {
           const link = $(el).attr("href");
           const title = $(el).find("h3").text().trim();
           if (!link || !title) return;
-
-          let fullUrl = link.startsWith("http")
-            ? link
-            : new URL(link, src.url).toString();
-
-          if (!/\/(articles|haberler|turkiye|dunya|bilim-)/.test(fullUrl))
-            return;
-
-          bbcLinks.push({ title, link: fullUrl });
+          let fullUrl = link.startsWith("http") ? link : new URL(link, src.url).toString();
+          if (!/\/(articles|haberler|turkiye|dunya|bilim-)/.test(fullUrl)) return;
+          allLinks.push({ title, link: fullUrl }); // BBC obje olarak tutuyor
         });
-
-        if (bbcLinks.length > 0) {
-          allLinks.push(...bbcLinks.map((item) => item.link));
+        // BBC için düz listeye çevirme (Prompt için)
+        if (allLinks.length > 0) {
+             const bbcCleanLinks = allLinks.map(item => item.link);
+             allLinks = bbcCleanLinks;
         }
       } else {
         $("a").each((i, el) => {
           const href = $(el).attr("href");
           if (!href) return;
           if (href.startsWith("#") || href.startsWith("javascript")) return;
-
           let fullUrl = href;
           if (!fullUrl.startsWith("http")) {
-            try {
-              fullUrl = new URL(fullUrl, src.url).toString();
-            } catch (e) {
-              return;
-            }
+            try { fullUrl = new URL(fullUrl, src.url).toString(); } catch (e) { return; }
           }
-
-          if (src.name.toLowerCase().includes("donanimhaber")) {
-            if (!/\/[^/]+--\d+$/.test(fullUrl)) return;
-          }
-
-          if (src.name.toLowerCase().includes("hackernews")) {
-            if (!/\d{4}\/\d{2}\//.test(fullUrl)) return;
-          }
-
+          if (src.name.toLowerCase().includes("donanimhaber") && !/\/[^/]+--\d+$/.test(fullUrl)) return;
+          if (src.name.toLowerCase().includes("hackernews") && !/\d{4}\/\d{2}\//.test(fullUrl)) return;
           if (src.name.toLowerCase().includes("shiftdelete")) {
-            if (!/^https:\/\/shiftdelete\.net\/[a-z0-9-]+(?:-[a-z0-9-]+)*$/i.test(fullUrl))
-              return;
-            if (/\/(yapay-zeka|mobil|ios|android|donanim|haberler|sdntv|inceleme)(\/|$)/i.test(fullUrl))
-              return;
+            if (!/^https:\/\/shiftdelete\.net\/[a-z0-9-]+(?:-[a-z0-9-]+)*$/i.test(fullUrl)) return;
+            if (/\/(yapay-zeka|mobil|ios|android|donanim|haberler|sdntv|inceleme)(\/|$)/i.test(fullUrl)) return;
             if (/\/page\//i.test(fullUrl)) return;
           }
-
           allLinks.push(fullUrl);
         });
       }
+    } catch (err) {
+      console.error(`❌ HTML indirme hatası (${src.name}):`, err.message);
+      continue;
+    }
 
-      console.log(`🔗 Filtrelenmiş link sayısı: ${allLinks.length}`);
+    console.log(`🔗 Filtrelenmiş link sayısı: ${allLinks.length}`);
+    if (allLinks.length === 0) {
+      console.log(`⚠️ ${src.name} için uygun link bulunamadı, atlanıyor.`);
+      continue;
+    }
 
-      if (allLinks.length === 0) {
-        console.log(`⚠️ ${src.name} için uygun link bulunamadı, atlanıyor.`);
-        continue;
-      }
+    // 3. Prompt Hazırlığı
+    let linkRule = "";
+    if (src.name.toLowerCase().includes("hackernews")) linkRule = `- TheHackerNews linkleri "/YYYY/MM/...html" formatında olmalı.`;
+    if (src.name.toLowerCase().includes("donanimhaber")) linkRule = `- DonanımHaber linkleri "...--123456" formatında olmalı.`;
 
-      // 3. Prompt hazırlığı
-      let linkRule = "";
-      if (src.name.toLowerCase().includes("hackernews")) {
-        linkRule = `- TheHackerNews linkleri "/YYYY/MM/...html" formatında olmalı.`;
-      }
-      if (src.name.toLowerCase().includes("donanimhaber")) {
-        linkRule = `- DonanımHaber linkleri "...--123456" formatında olmalı.`;
-      }
-
-      const extractPrompt = `
+    const extractPrompt = `
       Sen bir haber listesi ayıklama yapay zekasısın.
-      HTML kodu ve filtrelenmiş link listesi verilecek.
-      Görevin: Sayfadaki en güncel 7 haberi JSON formatında döndürmek.
-
-      Beklenen JSON:
-      [
-        { "title": "string", "summary": "string", "image_url": "string", "link": "string" }
-      ]
-
+      Link Listesi: ${JSON.stringify(allLinks.slice(0, 50), null, 2)}
+      
+      Görevin: HTML içeriğine bakarak en güncel 7 haberi JSON formatında döndürmek.
+      Beklenen JSON: [ { "title": "string", "summary": "string", "image_url": "string", "link": "string" } ]
+      
       Kurallar:
-      - "link" mutlaka verilen listeden birebir seçilmeli, uydurma slug veya ID ekleme.
+      - "link" mutlaka verilen listeden birebir seçilmeli.
       - ${linkRule}
-      - "title" sadece haber başlığı olabilir.
-      - "summary" kategori sayfasındaki kısa açıklama olmalı (yoksa başlıktan farklı birkaç cümle üret).
       - JSON dışında hiçbir şey yazma.
+      
+      HTML (ilk 5000 karakter): ${html.slice(0, 5000)}
+    `;
 
-      Link Listesi (toplam ${allLinks.length} adet):
-      ${JSON.stringify(allLinks.slice(0, 50), null, 2)}
+    // 4. AI İsteği (RETRIES - TEKRAR DENEME DÖNGÜSÜ) 🛑 BURASI YENİ
+    let parsed = null;
+    let attempts = 0;
+    const maxRetries = 3;
 
-      HTML (ilk 5000 karakter):
-      ${html.slice(0, 5000)}
-      `;
-
-      let parsed;
+    while (parsed === null && attempts < maxRetries) {
+      attempts++;
       try {
+        if (attempts > 1) console.log(`🔄 Deneme ${attempts}/${maxRetries} başlatılıyor...`);
+        
         const aiResult = await askAI(extractPrompt);
 
-        // 🛑 KRİTİK KONTROL: AI Cevap vermedi mi?
         if (!aiResult) {
-          console.warn(`⚠️ AI boş cevap döndü (Muhtemelen Rate Limit), bu kaynak atlanıyor: ${src.name}`);
-          console.log("⏳ Hata sonrası soğuma süresi (30 sn)...");
-          await sleep(30000); 
-          continue;
+          throw new Error("AI Boş Cevap Döndü (Muhtemelen 429)");
         }
 
         const jsonMatch = aiResult.match(/\[[\s\S]*\]/);
@@ -156,77 +128,66 @@ async function run() {
 
         try {
           parsed = JSON.parse(clean);
-        } catch (err) {
-          // ✅ DÜZELTME: jsonrepair fonksiyonu doğru kullanıldı
-          try {
-             parsed = JSON.parse(jsonrepair(clean));
-          } catch (repairErr) {
-             console.error("⚠️ JSON Repair de başarısız oldu:", repairErr.message);
-             continue; // Bu kaynağı atla
-          }
+        } catch (jsonErr) {
+          parsed = JSON.parse(jsonrepair(clean));
         }
+
       } catch (err) {
-        console.error("⚠️ Haber parse hatası (Genel):", err.message);
-        continue;
-      }
-
-      // 5. DB Kaydı
-      for (const post of parsed) {
-        const safeTitle = post.title?.trim() || "No title";
-        const safeSummary = post.summary?.trim() || null;
-        const safeImage = post.image_url?.trim() || null;
-        const safeLink = post.link?.trim() || null;
-
-        if (!safeLink || !allLinks.includes(safeLink)) {
-          continue;
-        }
-
-        const fingerprint = crypto
-          .createHash("sha1")
-          .update(safeTitle + safeLink)
-          .digest("hex");
-
-        try {
-          const existingByFingerprint = await postsRepository.findByFingerprint(fingerprint);
-          const existingByUrl = await postsRepository.findByUrl(safeLink);
-
-          if (existingByFingerprint || existingByUrl) {
-            console.log(`⚠️ Duplicate atlandı: ${safeTitle}`);
-            continue;
-          }
-
-          let lang = detectLanguage(safeTitle + " " + (safeSummary || ""));
-          if (!lang || (lang === "en" && src.name.toLowerCase() in SOURCE_DEFAULT_LANG)) {
-            lang = SOURCE_DEFAULT_LANG[src.name.toLowerCase()] || "en";
-          }
-
-          await postsRepository.createPost({
-            title: safeTitle,
-            summary: safeSummary,
-            content_raw: null,
-            content_clean: null,
-            image_url: safeImage,
-            source_url: safeLink,
-            source_id: src.id,
-            category_id: src.category_id,
-            fingerprint,
-            status: "fetched",
-            lang,
-          });
-          inserted++;
-          console.log(`✅ Eklendi: ${safeTitle} (lang=${lang})`);
-        } catch (dbErr) {
-          console.error(`⚠️ DB insert hatası:`, dbErr.message);
+        console.warn(`⚠️ AI Hatası (${src.name}) - Deneme ${attempts}: ${err.message}`);
+        
+        if (attempts < maxRetries) {
+          console.log(`⏳ Rate Limit Engellemesi! 60 saniye bekleyip TEKRAR DENENECEK...`);
+          await sleep(60000); // 60 Saniye Bekle
+        } else {
+          console.error(`❌ ${src.name} için 3 deneme de başarısız oldu. Bu kaynak atlanıyor.`);
         }
       }
-
-      // ✅ Bekleme süresini 20 saniye yaptım, Mistral için yeterli
-      console.log(`⏳ ${src.name} tamamlandı. 20 saniye bekleniyor...`);
-      await sleep(20000);
-
-    } catch (err) {
-      console.error(`❌ Kaynak hata: ${src.url}`, err.message);
     }
+
+    if (!parsed) continue; // 3 denemede de başarısız olursa sonraki kaynağa geç
+
+    // 5. Veritabanı Kayıt İşlemleri
+    for (const post of parsed) {
+      const safeTitle = post.title?.trim() || "No title";
+      const safeLink = post.link?.trim() || null;
+
+      if (!safeLink || !allLinks.includes(safeLink)) continue;
+
+      const fingerprint = crypto.createHash("sha1").update(safeTitle + safeLink).digest("hex");
+
+      try {
+        const existing = await postsRepository.findByFingerprint(fingerprint);
+        if (existing) {
+           // console.log("Duplicate atlandı."); 
+           continue; 
+        }
+
+        let lang = detectLanguage(safeTitle + " " + (post.summary || ""));
+        if (!lang || (lang === "en" && src.name.toLowerCase() in SOURCE_DEFAULT_LANG)) {
+          lang = SOURCE_DEFAULT_LANG[src.name.toLowerCase()] || "en";
+        }
+
+        await postsRepository.createPost({
+          title: safeTitle,
+          summary: post.summary,
+          image_url: post.image_url,
+          source_url: safeLink,
+          source_id: src.id,
+          category_id: src.category_id,
+          fingerprint,
+          status: "fetched",
+          lang,
+        });
+        inserted++;
+        console.log(`✅ Eklendi: ${safeTitle}`);
+      } catch (dbErr) {
+        console.error(`⚠️ DB Hatası:`, dbErr.message);
+      }
+    }
+
+    // Başarılı işlem sonrası da biraz bekle ki sonraki kaynak hemen engellenmesin
+    console.log(`⏳ ${src.name} bitti. Sonraki kaynak için 30 saniye bekleniyor...`);
+    await sleep(30000);
   }
 
   console.log(`📌 Toplam eklenen post: ${inserted}`);
