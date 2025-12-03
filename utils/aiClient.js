@@ -1,8 +1,11 @@
 const axios = require("axios");
 
+// Yardımcı Fonksiyon: Bekleme
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const client = axios.create({
   baseURL: "https://openrouter.ai/api/v1",
-  timeout: 120000, // 2 dakika timeout
+  timeout: 120000, 
   headers: {
     Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
     "Content-Type": "application/json",
@@ -11,11 +14,10 @@ const client = axios.create({
   },
 });
 
-async function askAI(prompt) {
+async function askAI(prompt, retries = 3) {
   try {
-    // ✅ İSTEK: Kullanıcının isteği üzerine Mistral'e geçildi.
-    // Alternatif olarak çok hızlı olan Llama 3.2 de kullanılabilir.
-    const model = "mistralai/mistral-small-3.1-24b-instruct:free";
+    // ✅ DEĞİŞİKLİK: En yüksek limitli ve hızlı ücretsiz model
+    const model = "google/gemini-2.0-flash-exp:free"; 
     
     console.log(`🚀 AI isteği atılıyor (Model: ${model})...`);
 
@@ -29,20 +31,22 @@ async function askAI(prompt) {
       console.log("✅ AI Cevabı alındı!");
       return res.data.choices[0].message.content.trim();
     } else {
-      console.log("⚠️ AI boş cevap döndü.");
       return null;
     }
 
   } catch (err) {
+    // 429 HATASI YAKALAMA
+    if (err.response && err.response.status === 429 && retries > 0) {
+      console.warn(`⚠️ Rate Limit (429). 60 saniye bekleyip tekrar deneniyor... (Kalan: ${retries})`);
+      await sleep(60000); 
+      return askAI(prompt, retries - 1);
+    }
+
     console.log("❌ AI HATASI OLUŞTU:");
     if (err.response) {
-      console.log(`Status: ${err.response.status}`);
-      // Detaylı hatayı görmek için
-      console.log(`Data: ${JSON.stringify(err.response.data)}`);
-    } else if (err.code === 'ECONNABORTED') {
-      console.log("Zaman aşımı (Timeout) hatası.");
+        console.log(`Status: ${err.response.status}`);
     } else {
-      console.log(err.message);
+        console.log(err.message);
     }
     return null;
   }
