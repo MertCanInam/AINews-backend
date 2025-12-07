@@ -14,10 +14,10 @@ const client = axios.create({
   },
 });
 
-async function askAI(prompt, retries = 3) {
+async function askAI(prompt, retries = 4, delay = 30000) { // 30 saniye ile başla
   try {
-    // ✅ DEĞİŞİKLİK: En yüksek limitli ve hızlı ücretsiz model
-    const model = "google/gemini-2.0-flash-exp:free"; 
+    // ✅ DEĞİŞİKLİK: Daha iyi rate limitlere sahip ücretsiz bir alternatif model
+    const model = "mistralai/mistral-7b-instruct:free";
     
     console.log(`🚀 AI isteği atılıyor (Model: ${model})...`);
 
@@ -36,10 +36,12 @@ async function askAI(prompt, retries = 3) {
 
   } catch (err) {
     // 429 HATASI YAKALAMA
-    if (err.response && err.response.status === 429 && retries > 0) {
-      console.warn(`⚠️ Rate Limit (429). 60 saniye bekleyip tekrar deneniyor... (Kalan: ${retries})`);
-      await sleep(60000); 
-      return askAI(prompt, retries - 1);
+    if (err.response && err.response.status === 429 && retries > 0) { // 429 Rate Limit
+      const waitTime = delay;
+      console.warn(`⚠️ Rate Limit (429). ${waitTime / 1000} saniye bekleyip tekrar deneniyor... (Kalan deneme: ${retries})`);
+      await sleep(waitTime);
+      // Bir sonraki denemede bekleme süresini ikiye katla (Exponential Backoff)
+      return askAI(prompt, retries - 1, delay * 2);
     }
 
     console.log("❌ AI HATASI OLUŞTU:");
